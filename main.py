@@ -35,7 +35,7 @@ def main():
     # --- EJECUCIÓN DEL FLUJO DE TRABAJO ---
     
     # Paso A: Monitoreo de Red
-    monitor.iniciar_monitoreo(duracion=5)
+    monitor.iniciar_monitoreo(duracion=15)
     
     # Paso B: Análisis de Logs
     analizador_logs.analizar()

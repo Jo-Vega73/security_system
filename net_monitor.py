@@ -27,6 +27,9 @@ class MonitorRed:
         self.conexiones_por_ip = defaultdict(int)
         self.puertos_por_ip = defaultdict(set)
 
+        self.eventos_analizados = 0
+        self.alertas_generadas = 0
+
     # ==============================================================
     #                MÉTODO PRINCIPAL
     # ==============================================================
@@ -56,6 +59,7 @@ class MonitorRed:
                         timeout=duracion,
                         store=False
                     )
+                    self._resumen_monitoreo()
                     return
                 except Exception as e:
                     print(f"    [!] Error al capturar: {e}")
@@ -122,11 +126,13 @@ class MonitorRed:
     #              MOTOR DE DETECCIÓN DE ATAQUES
     # ==============================================================
     def _procesar_evento(self, ip, puerto):
+        self.eventos_analizados += 1
         self.conexiones_por_ip[ip] += 1
         self.puertos_por_ip[ip].add(puerto)
 
         # --- ALERTA 1: Puerto crítico ---
         if puerto in PUERTOS_PELIGROSOS:
+            self.alertas_generadas += 1
             self.alerter.nueva_alerta(
                 "WARNING",
                 "RED",
@@ -136,6 +142,7 @@ class MonitorRed:
 
         # --- ALERTA 2: SYN Scan (muchos puertos diferentes) ---
         if len(self.puertos_por_ip[ip]) >= 6:
+            self.alertas_generadas += 1
             self.alerter.nueva_alerta(
                 "CRITICAL",
                 "RED",
@@ -145,9 +152,18 @@ class MonitorRed:
 
         # --- ALERTA 3: Frecuencia elevada ---
         if self.conexiones_por_ip[ip] >= 10:
+            self.alertas_generadas += 1
             self.alerter.nueva_alerta(
                 "CRITICAL",
                 "RED",
                 f"Frecuencia inusual de tráfico desde {ip}"
             )
             self.prevencion.bloquear_ip(ip, "Frecuencia elevada de paquetes")
+
+    def _resumen_monitoreo(self):
+        if self.eventos_analizados == 0:
+            print("    [ℹ️] Monitoreo finalizado: no se capturó tráfico TCP.")
+        elif self.alertas_generadas == 0:
+            print("    [ℹ️] Monitoreo finalizado: tráfico observado sin actividad sospechosa.")
+        else:
+            print(f"    [!] Monitoreo finalizado: {self.alertas_generadas} alertas generadas.")
