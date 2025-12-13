@@ -1,0 +1,32 @@
+# config.py
+import os
+
+# Rutas de archivos
+LOG_DIR = "logs"
+REPORT_DIR = "reports"
+LOG_FILE = os.path.join(LOG_DIR, "incidentes_seguridad.log")
+
+# Configuración de Red
+SCAPY_DISPONIBLE = False
+try:
+    import scapy.all
+    SCAPY_DISPONIBLE = True
+except ImportError:
+    pass
+
+# Reglas de Detección
+PUERTOS_PELIGROSOS = [21, 23, 445, 3389]
+VERSIONES_OBSOLETAS = ["v1.0", "v1.1", "winxp", "ssl v2"]
+
+PATRONES_WEB = {
+    "SQL Injection": r"('|\-\-|UNION SELECT)",
+    "XSS": r"(<script>|javascript:alert)",
+    "Path Traversal": r"(\.\./\.\./)"
+}
+
+PATRONES_LOGS = [
+    r"failed login", 
+    r"error de autenticación", 
+    r"password incorrect",
+    r"sudo:.*command not found"
+]
