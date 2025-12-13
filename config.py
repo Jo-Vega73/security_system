@@ -25,8 +25,10 @@ PATRONES_WEB = {
 }
 
 PATRONES_LOGS = [
-    r"failed login", 
-    r"error de autenticación", 
-    r"password incorrect",
-    r"sudo:.*command not found"
+    r"failed password",
+    r"authentication failure",
+    r"invalid user",
+    r"failed login",
+    r"error.*auth",
+    r"unauthorized"
 ]
