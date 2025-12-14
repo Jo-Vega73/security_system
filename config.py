@@ -26,10 +26,11 @@ VERSIONES_OBSOLETAS = {
 
 
 PATRONES_WEB = {
-    "SQL Injection": r"('|\-\-|UNION SELECT)",
-    "XSS": r"(<script>|javascript:alert)",
-    "Path Traversal": r"(\.\./\.\./)"
+    "SQL Injection": r"('|%27|--|\bOR\b|\bAND\b)",
+    "XSS": r"<script>|</script>",
+    "Command Injection": r"(;|\|\||&&|\bwhoami\b|\bls\b|\bcat\b)"
 }
+
 
 PATRONES_LOGS = [
     r"failed login", 
