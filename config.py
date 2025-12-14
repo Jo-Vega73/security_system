@@ -16,7 +16,14 @@ except ImportError:
 
 # Reglas de Detección
 PUERTOS_PELIGROSOS = [21, 23, 445, 3389]
-VERSIONES_OBSOLETAS = ["v1.0", "v1.1", "winxp", "ssl v2"]
+VERSIONES_OBSOLETAS = {
+    "OpenSSH": ["v1.0", "v1.1"],
+    "SMB": ["v1"],
+    "PowerShell": ["1.0", "2.0"],
+    "Windows": ["winxp", "vista"]
+}
+
+
 
 PATRONES_WEB = {
     "SQL Injection": r"('|\-\-|UNION SELECT)",
