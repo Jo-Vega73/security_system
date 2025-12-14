@@ -29,12 +29,13 @@ def main():
     analizador_logs = AnalizadorLogs(alerter)
     scanner = EscanerVuln(alerter)
     reporter = GeneradorReportes()
-
-    # --------------------------------------------
-    # Flujo
-    # --------------------------------------------
-    monitor.iniciar_monitoreo(duracion=5)
-
+    
+    # --- EJECUCIÓN DEL FLUJO DE TRABAJO ---
+    
+    # Paso A: Monitoreo de Red
+    monitor.iniciar_monitoreo(duracion=15)
+    
+    # Paso B: Análisis de Logs
     analizador_logs.analizar()
 
     vulnerabilidades = scanner.escanear("Servidor_Produccion_01")

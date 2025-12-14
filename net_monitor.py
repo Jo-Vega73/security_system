@@ -8,11 +8,12 @@ from config import PUERTOS_PELIGROSOS, SCAPY_DISPONIBLE
 
 WIN = platform.system() == "Windows"
 
-
-# Intentar importar Scapy (si está disponible/npcap instalado)
+# Intentar importar Scapy (si está disponible)
+IFACES = []
 if SCAPY_DISPONIBLE:
     try:
-        from scapy.all import sniff, IP, TCP
+        from scapy.all import sniff, IP, TCP, get_if_list
+        IFACES = get_if_list()
     except Exception:
         SCAPY_DISPONIBLE = False
 
@@ -22,37 +23,81 @@ class MonitorRed:
         self.prevencion = sistema_prevencion
         self.alerter = alerter
 
-        # Contador de conexiones por IP para detectar escaneos
+        # Detectar escaneos y comportamientos anómalos
         self.conexiones_por_ip = defaultdict(int)
-
-        # Contador de puertos tocados por cada IP (SYN scan detection)
         self.puertos_por_ip = defaultdict(set)
 
+        self.eventos_analizados = 0
+        self.alertas_generadas = 0
+
     # ==============================================================
-    #                MÉTODO PRINCIPAL LLAMADO DESDE main.py
+    #                MÉTODO PRINCIPAL
     # ==============================================================
     def iniciar_monitoreo(self, duracion=10):
         print(f"\n[+] Iniciando Monitoreo de Red ({duracion}s)...")
 
-        if SCAPY_DISPONIBLE and not WIN:
-            print("    Modo: SCAPY | Captura real de tráfico (sniffing)")
-            sniff(filter="tcp", prn=self._analizar_paquete, timeout=duracion)
-        else:
-            print("    Modo: SIMULACIÓN (Windows o Scapy no disponible)")
-            self._simular_trafico(duracion)
+        # ------------------------------
+        # WINDOWS → Simulación obligada
+        # ------------------------------
+        if WIN:
+            print("    Modo: SIMULACIÓN (Windows no permite sniffing estable con Scapy)")
+            return self._simular_trafico(duracion)
+
+        # ------------------------------
+        # LINUX → Intentar captura real
+        # ------------------------------
+        if SCAPY_DISPONIBLE:
+            iface = self._seleccionar_interfaz_linux()
+
+            if iface:
+                print(f"    Modo: SCAPY | Captura real en interfaz {iface}")
+                try:
+                    sniff(
+                        iface=iface,
+                        filter="tcp",
+                        prn=self._analizar_paquete,
+                        timeout=duracion,
+                        store=False
+                    )
+                    self._resumen_monitoreo()
+                    return
+                except Exception as e:
+                    print(f"    [!] Error al capturar: {e}")
+                    print("    → Cambiando a modo simulación.")
+            else:
+                print("    [!] No se encontró interfaz válida para sniffing en Linux.")
+        
+        # Fallback
+        print("    Modo: SIMULACIÓN (Scapy no disponible o fallo en sniffing)")
+        self._simular_trafico(duracion)
 
     # ==============================================================
-    #                   ANALIZADOR DE PAQUETES (SCAPY)
+    #               SELECCIÓN DE INTERFAZ (Linux)
+    # ==============================================================
+    def _seleccionar_interfaz_linux(self):
+        """Intenta elegir una interfaz realista para sniffing en Linux."""
+        if not IFACES:
+            return None
+
+        # Priorizar eth0, wlan0, enp* etc.
+        for iface in IFACES:
+            if iface.startswith("eth") or iface.startswith("enp") or iface.startswith("wlan"):
+                return iface
+
+        # Último recurso: la primera interfaz disponible
+        return IFACES[0]
+
+    # ==============================================================
+    #                  ANALIZADOR DE PAQUETES (SCAPY)
     # ==============================================================
     def _analizar_paquete(self, paquete):
         if paquete.haslayer(IP) and paquete.haslayer(TCP):
             ip = paquete[IP].src
             puerto = paquete[TCP].dport
-
             self._procesar_evento(ip, puerto)
 
     # ==============================================================
-    #                   SIMULACIÓN DE TRÁFICO
+    #                     SIMULACIÓN DE TRÁFICO
     # ==============================================================
     def _simular_trafico(self, duracion):
         ips = [
@@ -71,21 +116,23 @@ class MonitorRed:
             ip = random.choice(ips)
             puerto = random.choice(puertos)
 
-            # Simular frecuencia de escaneo
+            # Varias conexiones rápidas para simular escaneos
             for _ in range(random.randint(1, 3)):
                 self._procesar_evento(ip, puerto)
 
             time.sleep(0.5)
 
     # ==============================================================
-    #                 LÓGICA DE DETECCIÓN REAL
+    #              MOTOR DE DETECCIÓN DE ATAQUES
     # ==============================================================
     def _procesar_evento(self, ip, puerto):
+        self.eventos_analizados += 1
         self.conexiones_por_ip[ip] += 1
         self.puertos_por_ip[ip].add(puerto)
 
-        # --- ALERTA 1: Acceso a puertos sensibles ---
+        # --- ALERTA 1: Puerto crítico ---
         if puerto in PUERTOS_PELIGROSOS:
+            self.alertas_generadas += 1
             self.alerter.nueva_alerta(
                 "WARNING",
                 "RED",
@@ -93,20 +140,30 @@ class MonitorRed:
             )
             self.prevencion.bloquear_ip(ip, f"Acceso a puerto crítico {puerto}")
 
-        # --- ALERTA 2: Escaneo de puertos (SYN Scan) ---
-        if len(self.puertos_por_ip[ip]) >= 6:  # Muchas pruebas a distintos puertos
+        # --- ALERTA 2: SYN Scan (muchos puertos diferentes) ---
+        if len(self.puertos_por_ip[ip]) >= 6:
+            self.alertas_generadas += 1
             self.alerter.nueva_alerta(
                 "CRITICAL",
                 "RED",
                 f"Posible escaneo de puertos por {ip} (tocó {len(self.puertos_por_ip[ip])} puertos)"
             )
-            self.prevencion.bloquear_ip(ip, "Escaneo de puertos (SYN scan)")
+            self.prevencion.bloquear_ip(ip, "Scan sospechoso (SYN scan)")
 
-        # --- ALERTA 3: Conexiones anómalas repetidas ---
+        # --- ALERTA 3: Frecuencia elevada ---
         if self.conexiones_por_ip[ip] >= 10:
+            self.alertas_generadas += 1
             self.alerter.nueva_alerta(
                 "CRITICAL",
                 "RED",
-                f"Frecuencia de conexión anómala detectada desde {ip}"
+                f"Frecuencia inusual de tráfico desde {ip}"
             )
-            self.prevencion.bloquear_ip(ip, "Tráfico inusual / posible ataque")
+            self.prevencion.bloquear_ip(ip, "Frecuencia elevada de paquetes")
+
+    def _resumen_monitoreo(self):
+        if self.eventos_analizados == 0:
+            print("    [ℹ️] Monitoreo finalizado: no se capturó tráfico TCP.")
+        elif self.alertas_generadas == 0:
+            print("    [ℹ️] Monitoreo finalizado: tráfico observado sin actividad sospechosa.")
+        else:
+            print(f"    [!] Monitoreo finalizado: {self.alertas_generadas} alertas generadas.")
