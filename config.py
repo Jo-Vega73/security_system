@@ -19,10 +19,11 @@ PUERTOS_PELIGROSOS = [21, 23, 445, 3389]
 VERSIONES_OBSOLETAS = ["v1.0", "v1.1", "winxp", "ssl v2"]
 
 PATRONES_WEB = {
-    "SQL Injection": r"('|\-\-|UNION SELECT)",
-    "XSS": r"(<script>|javascript:alert)",
-    "Path Traversal": r"(\.\./\.\./)"
+    "SQL Injection": r"('|%27|--|\bOR\b|\bAND\b)",
+    "XSS": r"<script>|</script>",
+    "Command Injection": r"(;|\|\||&&|\bwhoami\b|\bls\b|\bcat\b)"
 }
+
 
 PATRONES_LOGS = [
     r"failed login", 
