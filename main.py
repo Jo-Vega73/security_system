@@ -37,14 +37,22 @@ def main():
     
     # Paso B: Análisis de Logs
     analizador_logs.analizar()
+    
+    # Paso C: Escaneo de Vulnerabilidades
+    vulns_encontradas = scanner.escanear_sistema("Servidor_Produccion_01")
+    
+    # Paso D: Análisis Web (Prueba interactiva)
+    payload = input("\nIngrese una URL para analizar (prueba de inyección): ")
+    analizador_web.analizar_peticion(payload, sistema_prev)
+    
+    # Paso E: Generar Reporte Final
+    ips = sistema_prev.obtener_bloqueos()
+    reporter.generar_html(ips, vulns_encontradas)
 
-    vulnerabilidades = scanner.escanear("Servidor_Produccion_01")
+    # Paso F: Resumen final de alertas
+    alerter.mostrar_resumen()
 
-    # Obtener bloqueos hechos por prevention
-    ips_bloqueadas = sistema_prevencion.ips_bloqueadas
-
-    reporter.generar_html(ips_bloqueadas, vulnerabilidades)
-
+    
     print("\n[FIN] Ejecución completada.")
 
 
