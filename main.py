@@ -50,6 +50,10 @@ def main():
     # Paso E: Generar Reporte Final
     ips = sistema_prev.obtener_bloqueos()
     reporter.generar_html(ips, vulns_encontradas)
+
+    # Paso F: Resumen final de alertas
+    alerter.mostrar_resumen()
+
     
     print("\n[FIN] Ejecución completada.")
 
