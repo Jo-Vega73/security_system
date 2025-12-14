@@ -18,23 +18,21 @@ class AnalizadorWeb:
 
         amenaza_detectada = False
 
-        # Parsear URL
+        # Parsear URL (más realista que analizar solo texto plano)
         parsed = urlparse(url)
         parametros = parse_qs(parsed.query)
 
         # Analizar URL completa
-        if self._analizar_texto(url, prevencion, origen="URL"):
-            amenaza_detectada = True
+        self._analizar_texto(url, prevencion, origen="URL")
 
         # Analizar parámetros individualmente
         for param, valores in parametros.items():
             for valor in valores:
-                if self._analizar_texto(
+                self._analizar_texto(
                     valor,
                     prevencion,
                     origen=f"Parámetro '{param}'"
-                ):
-                    amenaza_detectada = True
+                )
 
         if not amenaza_detectada:
             print("    ✔ Tráfico web limpio")
@@ -46,8 +44,6 @@ class AnalizadorWeb:
         for tipo, patron in PATRONES_WEB.items():
             if re.search(patron, texto, re.IGNORECASE):
                 self._detectar_ataque(tipo, texto, origen, prevencion)
-                return True
-        return False
 
     # ==========================================================
     #              RESPUESTA A ATAQUE
@@ -55,7 +51,7 @@ class AnalizadorWeb:
     def _detectar_ataque(self, tipo, texto, origen, prevencion):
         print(f"    ⚠️ ATAQUE DETECTADO [{tipo}] en {origen}")
 
-        # IP simulada
+        # IP simulada (en un sistema real vendría del request)
         ip_atacante = "192.168.1.66"
 
         # Alerta centralizada

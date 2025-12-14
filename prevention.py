@@ -121,6 +121,8 @@ class SistemaPrevencion:
     def _en_whitelist(self, ip):
         return ip in self.whitelist
     
+    # ==========================================================
+    #            CONSULTA DE ESTADO (REPORTING)
+    # ==========================================================
     def obtener_bloqueos(self):
         return sorted(self.ips_bloqueadas)
-
