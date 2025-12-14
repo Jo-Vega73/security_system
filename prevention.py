@@ -120,3 +120,7 @@ class SistemaPrevencion:
 
     def _en_whitelist(self, ip):
         return ip in self.whitelist
+    
+    def obtener_bloqueos(self):
+        return sorted(self.ips_bloqueadas)
+
