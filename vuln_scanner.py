@@ -27,8 +27,12 @@ class EscanerVuln:
                 print("    → Activando escenario SIMULADO")
                 return self._escanear_windows_simulado()
         else:
-            print("    Sistema no Windows (pendiente)")
-            return []
+            try:
+                return self._escanear_linux_real()
+            except Exception as e:
+                print(f"    [!] Escaneo real falló: {e}")
+                print("    → Activando escenario SIMULADO")
+                return self._escanear_linux_simulado()
 
     # ==========================================================
     #              ESCANEO REAL (WINDOWS)
@@ -37,9 +41,7 @@ class EscanerVuln:
         vulnerables = []
         print("    Modo: ESCANEO REAL")
 
-        # -----------------------------------------
         # 1. Sistema Operativo
-        # -----------------------------------------
         salida = subprocess.check_output(
             ["systeminfo"],
             text=True,
@@ -54,15 +56,10 @@ class EscanerVuln:
         else:
             print("    OS: OK")
 
-        # -----------------------------------------
         # 2. SMBv1
-        # -----------------------------------------
         salida = subprocess.check_output(
-            [
-                "powershell",
-                "-Command",
-                "Get-WindowsOptionalFeature -Online -FeatureName SMB1Protocol"
-            ],
+            ["powershell", "-Command",
+             "Get-WindowsOptionalFeature -Online -FeatureName SMB1Protocol"],
             text=True,
             encoding="utf-8",
             errors="ignore"
@@ -75,9 +72,7 @@ class EscanerVuln:
         else:
             print("    SMBv1: OK")
 
-        # -----------------------------------------
         # 3. PowerShell
-        # -----------------------------------------
         salida = subprocess.check_output(
             ["powershell", "-Command", "$PSVersionTable.PSVersion.Major"],
             text=True
@@ -90,9 +85,7 @@ class EscanerVuln:
         else:
             print("    PowerShell: OK")
 
-        # -----------------------------------------
         # 4. OpenSSH
-        # -----------------------------------------
         try:
             salida = subprocess.check_output(
                 ["ssh", "-V"],
@@ -107,14 +100,13 @@ class EscanerVuln:
                 vulnerables.append(msg)
             else:
                 print("    OpenSSH: OK")
-
         except Exception:
             print("    OpenSSH no instalado")
 
         return vulnerables
 
     # ==========================================================
-    #              ESCENARIO SIMULADO (WINDOWS)
+    #              SIMULACIÓN WINDOWS
     # ==========================================================
     def _escanear_windows_simulado(self):
         vulnerables = []
@@ -144,6 +136,106 @@ class EscanerVuln:
 
         if simulacion["OpenSSH"] == "v1.0":
             msg = "OpenSSH desactualizado (simulado)"
+            self._alerta(msg)
+            vulnerables.append(msg)
+
+        return vulnerables
+
+    # ==========================================================
+    #              ESCANEO REAL (LINUX)
+    # ==========================================================
+    def _escanear_linux_real(self):
+        vulnerables = []
+        print("    Modo: ESCANEO REAL (Linux)")
+
+        # 1. Kernel
+        kernel = subprocess.check_output(["uname", "-r"], text=True).strip()
+        print(f"    Kernel detectado: {kernel}")
+
+        if kernel.startswith("4.") or kernel.startswith("3."):
+            msg = f"Kernel Linux desactualizado ({kernel})"
+            self._alerta(msg)
+            vulnerables.append(msg)
+
+        # 2. Servicios escuchando
+        salida = subprocess.check_output(["ss", "-tuln"], text=True)
+
+        if "0.0.0.0:23" in salida:
+            msg = "Servicio Telnet activo (puerto 23)"
+            self._alerta(msg)
+            vulnerables.append(msg)
+
+        if "0.0.0.0:21" in salida:
+            msg = "Servicio FTP activo (puerto 21)"
+            self._alerta(msg)
+            vulnerables.append(msg)
+
+        if "0.0.0.0:22" in salida:
+            print("    SSH expuesto públicamente")
+
+        # 3. SSH Root Login
+        try:
+            with open("/etc/ssh/sshd_config", "r") as f:
+                ssh_cfg = f.read()
+
+            if "PermitRootLogin yes" in ssh_cfg:
+                msg = "SSH permite login como root"
+                self._alerta(msg)
+                vulnerables.append(msg)
+        except Exception:
+            print("    No se pudo leer sshd_config")
+
+        # 4. Firewall
+        try:
+            salida = subprocess.check_output(["ufw", "status"], text=True)
+            if "inactive" in salida.lower():
+                msg = "Firewall UFW inactivo"
+                self._alerta(msg)
+                vulnerables.append(msg)
+            else:
+                print("    Firewall: OK")
+        except Exception:
+            print("    UFW no instalado")
+
+        return vulnerables
+
+    # ==========================================================
+    #              SIMULACIÓN LINUX
+    # ==========================================================
+    def _escanear_linux_simulado(self):
+        vulnerables = []
+        print("    Modo: SIMULACIÓN CONTROLADA (Linux)")
+
+        simulacion = {
+            "kernel": "4.15",
+            "telnet": True,
+            "ftp": True,
+            "ssh_root": True,
+            "firewall": False
+        }
+
+        if simulacion["kernel"].startswith("4."):
+            msg = "Kernel Linux desactualizado (simulado)"
+            self._alerta(msg)
+            vulnerables.append(msg)
+
+        if simulacion["telnet"]:
+            msg = "Servicio Telnet activo (simulado)"
+            self._alerta(msg)
+            vulnerables.append(msg)
+
+        if simulacion["ftp"]:
+            msg = "Servicio FTP activo (simulado)"
+            self._alerta(msg)
+            vulnerables.append(msg)
+
+        if simulacion["ssh_root"]:
+            msg = "SSH permite login root (simulado)"
+            self._alerta(msg)
+            vulnerables.append(msg)
+
+        if not simulacion["firewall"]:
+            msg = "Firewall inactivo (simulado)"
             self._alerta(msg)
             vulnerables.append(msg)
 
